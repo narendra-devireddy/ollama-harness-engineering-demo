@@ -1,0 +1,40 @@
+type: object
+required:
+  - invoice_number
+  - invoice_date
+  - vendor
+  - currency
+  - subtotal
+  - tax
+  - total
+  - line_items
+properties:
+  invoice_number:
+    type: [string, 'null']
+  invoice_date:
+    type: [string, 'null']
+    description: ISO-8601 date.
+  vendor:
+    type: [string, 'null']
+  currency:
+    type: string
+  subtotal:
+    type: [string, 'null']
+  tax:
+    type: [string, 'null']
+  total:
+    type: [string, 'null']
+  line_items:
+    type: array
+    items:
+      type: object
+      required: [description, quantity, unit_price, total]
+      properties:
+        description:
+          type: string
+        quantity:
+          type: [number, 'null']
+        unit_price:
+          type: [string, 'null']
+        total:
+          type: [string, 'null']

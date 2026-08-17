@@ -1,0 +1,9 @@
+Invoice # INV-1042
+Date: 03/14/2026
+Vendor: Northstar Office Supply
+
+2 x Ergonomic keyboard @ $79.50 = $159.00
+1 x Monitor arm @ $124.00 = $124.00
+Subtotal: $283.00
+Tax: $22.64
+Total Due: $305.64

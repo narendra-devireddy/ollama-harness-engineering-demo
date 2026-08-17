@@ -1,0 +1,1 @@
+Extract the invoice data from the text and return clean JSON.

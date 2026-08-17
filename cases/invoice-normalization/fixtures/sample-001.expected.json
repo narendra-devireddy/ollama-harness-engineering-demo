@@ -1,0 +1,23 @@
+{
+  "invoice_number": "INV-1042",
+  "invoice_date": "2026-03-14",
+  "vendor": "Northstar Office Supply",
+  "currency": "USD",
+  "subtotal": "283.00",
+  "tax": "22.64",
+  "total": "305.64",
+  "line_items": [
+    {
+      "description": "Ergonomic keyboard",
+      "quantity": 2,
+      "unit_price": "79.50",
+      "total": "159.00"
+    },
+    {
+      "description": "Monitor arm",
+      "quantity": 1,
+      "unit_price": "124.00",
+      "total": "124.00"
+    }
+  ]
+}
