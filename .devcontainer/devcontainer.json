@@ -1,0 +1,18 @@
+{
+  "name": "Harness Engineering Demo",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "remoteEnv": {
+    "OLLAMA_API_KEY": "${localEnv:OLLAMA_API_KEY}"
+  },
+  "postCreateCommand": "pip install -e . && harness-demo compare --scenario incident-response",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python"
+      ]
+    }
+  }
+}

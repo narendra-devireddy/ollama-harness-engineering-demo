@@ -73,6 +73,12 @@ harness-demo compare --scenario incident-response
 
 The current implementation includes an offline deterministic demo runner. That means the management walkthrough works even before API keys are configured.
 
+## Hosted Demo
+
+If the office Mac restricts Python package installation, run the project in Docker, GitHub Codespaces, Replit, or a cloud VM and use the office Mac only as a browser/terminal viewer.
+
+See [docs/hosted-demo.md](docs/hosted-demo.md).
+
 ## Live Model Setup
 
 Ollama local or cloud-offload mode:
