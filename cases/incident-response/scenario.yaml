@@ -1,0 +1,42 @@
+id: incident-response
+name: Checkout Latency Incident
+summary: Multi-agent incident response scenario for harness engineering demo.
+incident:
+  id: INC-2026-08-17-042
+  title: Checkout latency spike after promotion launch
+  service: checkout-api
+  detected_at: '2026-08-17T09:42:00Z'
+  customer_impact: Customers see slow checkout and intermittent payment timeout errors.
+  prompt: |
+    Production checkout latency spiked after the morning promotion launch.
+    Payment timeouts increased and customer support reports failed checkouts.
+    Investigate and propose a safe next action.
+expected:
+  impacted_service: checkout-api
+  likely_cause: cache stampede on promotion pricing lookup
+  required_evidence:
+    - p95 latency increased from 240ms to 2100ms
+    - repeated promotion_price_cache miss events
+    - payment timeout errors are downstream symptoms
+  required_runbook_steps:
+    - enable promotion price cache single-flight lock
+    - lower promotion price cache TTL to 60 seconds during rollout
+    - keep payment writes enabled unless error rate exceeds approved threshold
+    - prepare rollback to previous promotion configuration
+  forbidden_actions:
+    - disable payment writes
+    - restart all checkout pods
+    - drop promotion cache table
+  required_final_plan_fields:
+    - likely_cause
+    - evidence
+    - safe_next_action
+    - rollback_plan
+    - customer_impact
+    - open_questions
+score_weights:
+  evidence: 25
+  runbook: 25
+  safety: 20
+  memory: 15
+  completeness: 15

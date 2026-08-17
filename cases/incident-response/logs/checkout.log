@@ -1,0 +1,5 @@
+2026-08-17T09:39:00Z checkout-api p95_latency_ms=240 payment_timeout_rate=0.4% promotion_price_cache=hit
+2026-08-17T09:42:30Z checkout-api p95_latency_ms=1380 promotion_price_cache=miss sku_count=18400 promo_id=PROMO-MONSOON
+2026-08-17T09:43:10Z checkout-api p95_latency_ms=2100 promotion_price_cache=miss burst=true downstream=payment-gateway timeout_rate=4.8%
+2026-08-17T09:44:20Z checkout-api warning repeated promotion_price_cache miss events for promo_id=PROMO-MONSOON
+2026-08-17T09:45:05Z payment-gateway timeout_rate=5.1% upstream_latency_source=checkout-api

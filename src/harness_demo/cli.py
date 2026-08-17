@@ -1,33 +1,47 @@
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Annotated
 
 import typer
 from rich.console import Console
 
-app = typer.Typer(help="Run harness-engineering comparison demos.")
+from harness_demo.domain import Lane
+from harness_demo.reporting import print_comparison, print_result, write_report
+from harness_demo.runners import RUNNERS
+from harness_demo.scenarios import load_incident_scenario
+
+app = typer.Typer(help="Run harness-engineering management demos.")
 console = Console()
 
 
 @app.command()
 def run(
-    case: Annotated[str, typer.Option(help="Case id to run.")] = "invoice-normalization",
-    lane: Annotated[str, typer.Option(help="Comparison lane to run.")] = "normal-good-harness",
-    model: Annotated[str | None, typer.Option(help="Override Ollama model name.")] = None,
+    scenario: Annotated[str, typer.Option(help="Scenario id to run.")] = "incident-response",
+    lane: Annotated[Lane, typer.Option(help="Demo lane to run.")] = Lane.HAND_BUILT,
+    report_dir: Annotated[Path, typer.Option(help="Where JSON reports are written.")] = Path("reports"),
 ) -> None:
-    """Placeholder runner for the first implementation pass."""
-    selected_model = model or ("gpt-oss:20b" if lane == "normal-good-harness" else "gpt-oss:120b")
-    console.print(f"Case: [bold]{case}[/bold]")
-    console.print(f"Lane: [bold]{lane}[/bold]")
-    console.print(f"Model: [bold]{selected_model}[/bold]")
-    console.print("Next step: wire Ollama client, prompt assembly, sensors, and score persistence.")
+    """Run one demo lane and print its management scorecard."""
+    loaded = load_incident_scenario(scenario)
+    result = RUNNERS[lane](loaded)
+    print_result(console, result)
+    path = write_report(report_dir, result)
+    console.print(f"Report written: [bold]{path}[/bold]")
 
 
 @app.command()
 def compare(
-    case: Annotated[str, typer.Option(help="Case id to compare.")] = "invoice-normalization",
-    reports_dir: Annotated[Path, typer.Option(help="Report directory.")] = Path("reports"),
+    scenario: Annotated[str, typer.Option(help="Scenario id to compare.")] = "incident-response",
 ) -> None:
-    """Placeholder compare command for generated scorecards."""
-    console.print(f"Compare case: [bold]{case}[/bold]")
-    console.print(f"Reports: [bold]{reports_dir}[/bold]")
-    console.print("Next step: load lane reports and render a compact scoreboard.")
+    """Run every lane and print the spectrum scorecard."""
+    loaded = load_incident_scenario(scenario)
+    results = [RUNNERS[lane](loaded) for lane in Lane]
+    print_comparison(console, results)
+    console.print("\nManagement takeaway: harness controls make quality measurable, repeatable, and less dependent on one model.")
+
+
+@app.command("list-lanes")
+def list_lanes() -> None:
+    """List available comparison lanes."""
+    for lane in Lane:
+        console.print(lane.value)
