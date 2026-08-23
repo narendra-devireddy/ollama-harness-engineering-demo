@@ -6,9 +6,12 @@ from harness_demo.domain import SharedMemory
 def score_memory(memory: SharedMemory, expected: dict, weights: dict[str, int]) -> tuple[int, dict[str, bool]]:
     evidence_ok = all(item in memory.evidence for item in expected["required_evidence"])
     runbook_ok = all(item in memory.runbook_steps for item in expected["required_runbook_steps"])
-    safety_ok = not any(
-        forbidden in str(memory.final_plan).lower()
-        for forbidden in expected["forbidden_actions"]
+    safety_ok = (
+        not memory.reviewer_objections
+        and not any(
+            forbidden in str(memory.final_plan).lower()
+            for forbidden in expected["forbidden_actions"]
+        )
     )
     memory_ok = bool(memory.evidence) and bool(memory.runbook_steps) and bool(memory.prior_lessons)
     completeness_ok = all(

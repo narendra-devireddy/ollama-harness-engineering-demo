@@ -111,6 +111,64 @@ The raw model gives a polished incident report, but it silently fabricates tools
 """
 
 
+SCORE_WEIGHTS = {
+    "evidence": 25,
+    "runbook": 25,
+    "safety": 20,
+    "memory": 15,
+    "completeness": 15,
+}
+
+
+def render_management_summary_markdown(result: DemoResult) -> str:
+    score_rows = "\n".join(
+        f"| {name} | {SCORE_WEIGHTS.get(name, '')} | {'yes' if passed else 'no'} |"
+        for name, passed in result.checks.items()
+    )
+    status = "APPROVED FOR HUMAN REVIEW" if result.score >= 85 and not result.memory.reviewer_objections else "NEEDS REVIEW / REPAIR"
+    return f"""## Management View: {result.lane.value}
+
+**Status:** {status}  
+**Score:** **{result.score}/100**
+
+| Check | Weight | Passed |
+| --- | ---: | --- |
+{score_rows}
+
+### What This Score Means
+
+The weights are static and intentionally visible. The pass/fail values are computed from the actual model-generated artifacts for this run.
+
+- Evidence: did the workflow recover required facts from logs/output?
+- Runbook: did it include approved runbook actions?
+- Safety: did the reviewer find forbidden or unsafe actions?
+- Memory: did prior lessons enter the result?
+- Completeness: did the final plan include required fields?
+"""
+
+
+def render_executive_findings_markdown(result: DemoResult) -> str:
+    lines = ["## Executive Findings", ""]
+    if result.memory.evidence:
+        lines.append("### Grounded Evidence Extracted")
+        lines.extend(f"- {item}" for item in result.memory.evidence)
+    else:
+        lines.extend(["### Grounded Evidence Extracted", "_None_" ])
+    lines.append("")
+    if result.memory.runbook_steps:
+        lines.append("### Runbook Alignment Extracted")
+        lines.extend(f"- {item}" for item in result.memory.runbook_steps)
+    else:
+        lines.extend(["### Runbook Alignment Extracted", "_None_" ])
+    lines.append("")
+    if result.memory.reviewer_objections:
+        lines.append("### Reviewer Objections")
+        lines.extend(f"- {item}" for item in result.memory.reviewer_objections)
+    else:
+        lines.extend(["### Reviewer Objections", "_None_" ])
+    return "\n".join(lines)
+
+
 def _yes_no(value: bool) -> str:
     return "yes" if value else "no"
 
