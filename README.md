@@ -104,6 +104,24 @@ export STRONG_MODEL=gpt-oss:120b
 
 Ollama supports OpenAI-compatible `/v1/chat/completions`, including tools and JSON mode for supported models.
 
+## Live Ollama Harness Mode
+
+The Colab notebook and CLI support a live comparison that calls Ollama Cloud through the repo harness workflow:
+
+```bash
+export OLLAMA_API_KEY=your_key
+harness-demo compare --scenario incident-response --live \
+  --raw-model gpt-oss:120b \
+  --harness-model gpt-oss:20b
+```
+
+Live mode currently supports:
+
+- `raw-strong`: one strong-model call with no tools, memory, reviewer, or repair.
+- `hand-built`: multiple medium-model agent calls with controlled logs, runbook, prior memory, shared state, deterministic sensors, reviewer checks, and repair.
+
+The deterministic lanes remain useful as smoke tests, but they should not be presented as the proof in a management demo.
+
 ## Strands Fit
 
 Strands is the SDK abstraction layer in the demo. It lets us show that the industry is packaging harness concepts into reusable agent runtimes:
