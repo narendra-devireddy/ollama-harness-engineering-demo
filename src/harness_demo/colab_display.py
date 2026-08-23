@@ -4,7 +4,8 @@ import html
 import json
 from dataclasses import asdict
 
-from harness_demo.domain import DemoResult, SharedMemory
+from harness_demo.domain import DemoResult, IncidentScenario, SharedMemory
+from harness_demo.rules import RuleFinding, evaluate_rules
 
 
 def render_result_markdown(result: DemoResult) -> str:
@@ -166,6 +167,35 @@ def render_executive_findings_markdown(result: DemoResult) -> str:
         lines.extend(f"- {item}" for item in result.memory.reviewer_objections)
     else:
         lines.extend(["### Reviewer Objections", "_None_" ])
+    return "\n".join(lines)
+
+
+def render_rule_findings_markdown(scenario: IncidentScenario, result: DemoResult) -> str:
+    findings = evaluate_rules(scenario, result)
+    groups = {
+        "good": [f for f in findings if f.severity == "good"],
+        "miss": [f for f in findings if f.severity == "miss"],
+        "risk": [f for f in findings if f.severity == "risk"],
+        "info": [f for f in findings if f.severity == "info"],
+    }
+    parts = ["## Deterministic Rule Findings", ""]
+    parts.append(_finding_section("What went well", groups["good"]))
+    parts.append(_finding_section("What was missed", groups["miss"]))
+    parts.append(_finding_section("Risks / contradictions / unsupported claims", groups["risk"]))
+    if groups["info"]:
+        parts.append(_finding_section("Info", groups["info"]))
+    return "\n".join(parts)
+
+
+def _finding_section(title: str, findings: list[RuleFinding]) -> str:
+    if not findings:
+        return f"### {title}\n\n_None_\n"
+    lines = [f"### {title}", ""]
+    for finding in findings:
+        lines.append(f"- **{finding.title}** ({finding.category}): {finding.detail}")
+        if finding.recommendation:
+            lines.append(f"  - Recommendation: {finding.recommendation}")
+    lines.append("")
     return "\n".join(lines)
 
 
