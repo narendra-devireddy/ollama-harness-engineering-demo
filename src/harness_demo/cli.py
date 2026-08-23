@@ -7,7 +7,7 @@ import typer
 from rich.console import Console
 
 from harness_demo.domain import Lane
-from harness_demo.live import run_live_hand_built_lane, run_live_raw_lane
+from harness_demo.live import run_live_hand_built_lane, run_live_raw_lane, run_live_weak_harness_lane
 from harness_demo.reporting import print_comparison, print_result, write_report
 from harness_demo.runners import RUNNERS
 from harness_demo.scenarios import load_incident_scenario
@@ -39,7 +39,8 @@ def run(
 def compare(
     scenario: Annotated[str, typer.Option(help="Scenario id to compare.")] = "incident-response",
     live: Annotated[bool, typer.Option(help="Compare live Ollama lanes for raw vs hand-built harness.")] = False,
-    raw_model: Annotated[str, typer.Option(help="Strong model for the weak-harness live lane.")] = "gpt-oss:120b",
+    raw_model: Annotated[str, typer.Option(help="Strong model for the no-harness live lane.")] = "gpt-oss:120b",
+    weak_harness_model: Annotated[str, typer.Option(help="Strong model for the weak-harness live lane.")] = "gpt-oss:120b",
     harness_model: Annotated[str, typer.Option(help="Medium model for the harnessed live lane.")] = "gpt-oss:20b",
 ) -> None:
     """Run comparison lanes and print the spectrum scorecard."""
@@ -47,6 +48,7 @@ def compare(
     if live:
         results = [
             run_live_raw_lane(loaded, model_name=raw_model),
+            run_live_weak_harness_lane(loaded, model_name=weak_harness_model),
             run_live_hand_built_lane(loaded, model_name=harness_model),
         ]
         console.print("[bold]Live Ollama Cloud comparison[/bold]")
@@ -67,9 +69,11 @@ def list_lanes() -> None:
 def _run_live_lane(scenario, lane: Lane, model: str | None):
     if lane == Lane.RAW_STRONG:
         return run_live_raw_lane(scenario, model_name=model or "gpt-oss:120b")
+    if lane == Lane.WEAK_HARNESS:
+        return run_live_weak_harness_lane(scenario, model_name=model or "gpt-oss:120b")
     if lane == Lane.HAND_BUILT:
         return run_live_hand_built_lane(scenario, model_name=model or "gpt-oss:20b")
     raise typer.BadParameter(
-        "Live mode currently supports raw-strong and hand-built. "
+        "Live mode currently supports raw-strong, weak-harness, and hand-built. "
         "Use deterministic mode for strands-sdk/deepseek-provider until those adapters are wired."
     )

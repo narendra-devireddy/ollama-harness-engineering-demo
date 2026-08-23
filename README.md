@@ -117,8 +117,9 @@ harness-demo compare --scenario incident-response --live \
 
 Live mode currently supports:
 
-- `raw-strong`: one strong-model call with no tools, memory, reviewer, or repair.
-- `hand-built`: multiple medium-model agent calls with controlled logs, runbook, prior memory, shared state, deterministic sensors, reviewer checks, and repair.
+- `raw-strong`: no-harness baseline; one strong-model call with no tools, memory, reviewer, or repair.
+- `weak-harness`: one strong-model call with context bundle and instructions, but no sensors, reviewer, shared state, or repair.
+- `hand-built`: strong harness; multiple medium-model agent calls with controlled logs, runbook, prior memory, shared state, deterministic sensors, reviewer checks, and repair.
 
 The deterministic lanes remain useful as smoke tests, but they should not be presented as the proof in a management demo.
 

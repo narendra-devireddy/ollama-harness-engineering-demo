@@ -35,6 +35,59 @@ def run_live_raw_lane(
     )
 
 
+def run_live_weak_harness_lane(
+    scenario: IncidentScenario,
+    model_name: str = "gpt-oss:120b",
+    model: ChatModel | None = None,
+) -> DemoResult:
+    chat_model = model or OllamaCloudModel(model_name)
+    prompt = f"""Incident:
+{scenario.incident['prompt']}
+
+Available context, pasted as one bundle:
+
+Logs:
+{scenario.logs}
+
+Runbook:
+{scenario.runbook}
+
+Prior incident memory:
+{scenario.prior_memory}
+
+Please produce a final incident response plan with likely_cause, evidence, safe_next_action, rollback_plan, customer_impact, and open_questions.
+Avoid unsafe actions.
+"""
+    answer = chat_model.chat([
+        {
+            "role": "system",
+            "content": (
+                "You are an expert incident commander. You have some context in the prompt. "
+                "Produce the best answer you can."
+            ),
+        },
+        {"role": "user", "content": prompt},
+    ])
+    memory = _memory_from_answer(scenario, answer, used_harness_memory=True)
+    plan = _extract_plan(answer)
+    if plan:
+        memory.final_plan = plan
+    score, checks = score_memory(memory, scenario.expected, scenario.score_weights)
+    return DemoResult(
+        scenario_id=scenario.id,
+        lane=Lane.WEAK_HARNESS,
+        title=f"Live strong model with weak harness ({chat_model.model_name})",
+        final_answer=answer,
+        memory=memory,
+        score=score,
+        checks=checks,
+        business_takeaway=(
+            "This is a weak harness: it has feedforward context, but no controlled tool boundary, "
+            "no shared state model, no independent sensors before final scoring, no reviewer gate, and no repair loop."
+        ),
+    )
+
+
 def run_live_hand_built_lane(
     scenario: IncidentScenario,
     model_name: str = "gpt-oss:20b",

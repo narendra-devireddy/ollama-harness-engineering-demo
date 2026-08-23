@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from harness_demo.live import run_live_hand_built_lane, run_live_raw_lane
+from harness_demo.live import run_live_hand_built_lane, run_live_raw_lane, run_live_weak_harness_lane
 from harness_demo.scenarios import load_incident_scenario
 
 
@@ -48,3 +48,17 @@ def test_live_hand_built_uses_agent_outputs_and_scores_shared_memory() -> None:
     assert all(result.checks.values())
     assert len(result.memory.evidence) == 3
     assert len(result.memory.runbook_steps) == 4
+
+
+def test_live_weak_harness_scores_actual_context_bundle_output() -> None:
+    scenario = load_incident_scenario("incident-response")
+    model = FakeModel(
+        responses=[
+            "Use single-flight lock, lower TTL to 60 seconds, keep payment writes enabled, rollback to previous promotion config. Evidence: p95 latency 240 to 2100, promotion_price_cache miss, downstream payment timeout. Prior memory says avoid restart."
+        ]
+    )
+    result = run_live_weak_harness_lane(scenario, model=model)
+    assert result.score > 0
+    assert result.checks["evidence"]
+    assert result.checks["runbook"]
+    assert result.checks["memory"]

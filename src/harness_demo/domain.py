@@ -6,6 +6,7 @@ from enum import Enum
 
 class Lane(str, Enum):
     RAW_STRONG = "raw-strong"
+    WEAK_HARNESS = "weak-harness"
     HAND_BUILT = "hand-built"
     STRANDS_SDK = "strands-sdk"
     DEEPSEEK_PROVIDER = "deepseek-provider"

@@ -28,3 +28,28 @@ def run_raw_strong_lane(scenario: IncidentScenario) -> DemoResult:
         checks=checks,
         business_takeaway="A strong model can sound confident while missing policy, memory, and safety constraints.",
     )
+
+
+def run_weak_harness_lane(scenario: IncidentScenario) -> DemoResult:
+    memory = SharedMemory()
+    memory.incident_facts = {
+        "service": scenario.incident["service"],
+        "impact": scenario.incident["customer_impact"],
+    }
+    memory.add_evidence("p95 latency increased from 240ms to 2100ms")
+    memory.add_evidence("repeated promotion_price_cache miss events")
+    memory.add_runbook_step("enable promotion price cache single-flight lock")
+    memory.final_plan = {
+        "raw_answer": "Dry-run weak harness: context bundle was provided, but no sensors or repair operated before final scoring."
+    }
+    score, checks = score_memory(memory, scenario.expected, scenario.score_weights)
+    return DemoResult(
+        scenario_id=scenario.id,
+        lane=Lane.WEAK_HARNESS,
+        title="Strong model with weak harness",
+        final_answer="Dry-run placeholder for weak-harness smoke testing only.",
+        memory=memory,
+        score=score,
+        checks=checks,
+        business_takeaway="A weak harness has some feedforward context, but lacks sensors, reviewer gates, shared state, and repair.",
+    )
