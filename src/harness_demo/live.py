@@ -232,6 +232,33 @@ Prior memory:
     )
 
 
+def score_freeform_answer(
+    scenario: IncidentScenario,
+    answer: str,
+    lane: Lane,
+    title: str,
+    takeaway: str,
+    used_harness_memory: bool = True,
+) -> DemoResult:
+    memory = _memory_from_answer(scenario, answer, used_harness_memory=used_harness_memory)
+    plan = _extract_plan(answer)
+    if plan:
+        memory.final_plan = plan
+    reviewer_notes = _review_plan(scenario, memory)
+    memory.reviewer_objections.extend(reviewer_notes)
+    score, checks = score_memory(memory, scenario.expected, scenario.score_weights)
+    return DemoResult(
+        scenario_id=scenario.id,
+        lane=lane,
+        title=title,
+        final_answer=answer,
+        memory=memory,
+        score=score,
+        checks=checks,
+        business_takeaway=takeaway,
+    )
+
+
 def _memory_from_answer(scenario: IncidentScenario, answer: str, used_harness_memory: bool) -> SharedMemory:
     memory = SharedMemory(
         incident_facts={

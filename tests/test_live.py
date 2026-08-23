@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from harness_demo.domain import Lane
+
 from dataclasses import dataclass, field
 
-from harness_demo.live import run_live_hand_built_lane, run_live_raw_lane, run_live_weak_harness_lane
+from harness_demo.live import run_live_hand_built_lane, run_live_raw_lane, run_live_weak_harness_lane, score_freeform_answer
 from harness_demo.scenarios import load_incident_scenario
 
 
@@ -63,3 +65,17 @@ def test_live_weak_harness_scores_actual_context_bundle_output() -> None:
     assert result.checks["evidence"]
     assert result.checks["runbook"]
     assert result.checks["memory"]
+
+
+def test_score_freeform_answer_scores_framework_outputs() -> None:
+    scenario = load_incident_scenario("incident-response")
+    result = score_freeform_answer(
+        scenario=scenario,
+        answer="single-flight lock, TTL to 60 seconds, p95 latency 240 to 2100, promotion_price_cache miss, downstream payment timeout, prior incident says avoid restart",
+        lane=Lane.STRANDS_SDK,
+        title="framework output",
+        takeaway="test",
+        used_harness_memory=True,
+    )
+    assert result.checks["evidence"]
+    assert result.score > 0
