@@ -73,6 +73,10 @@ harness-demo compare --scenario incident-response
 
 The current implementation includes an offline deterministic demo runner. That means the management walkthrough works even before API keys are configured.
 
+## Colab Notebook
+
+A Colab-first management walkthrough is available at [notebooks/harness_engineering_colab_demo.ipynb](notebooks/harness_engineering_colab_demo.ipynb). It includes narrative markdown, setup cells, deterministic scorecards, and optional live Ollama Cloud model calls.
+
 ## Hosted Demo
 
 If the office Mac restricts Python package installation, run the project in Docker, GitHub Codespaces, Replit, or a cloud VM and use the office Mac only as a browser/terminal viewer.
