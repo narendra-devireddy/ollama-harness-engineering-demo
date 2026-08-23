@@ -60,7 +60,7 @@ Identify evidence for the likely cause and downstream symptoms."""
         {"role": "system", "content": "You are the log investigator agent. Use only the supplied logs. Return concise bullets."},
         {"role": "user", "content": evidence_prompt},
     ])
-    _add_evidence_signals(scenario, memory, evidence_answer + "\n" + scenario.logs)
+    _add_evidence_signals(scenario, memory, evidence_answer)
 
     runbook_prompt = f"""Incident:
 {scenario.incident['prompt']}
@@ -73,7 +73,7 @@ Select the approved next steps and safety constraints."""
         {"role": "system", "content": "You are the runbook agent. Use only the supplied runbook. Return approved mitigation constraints."},
         {"role": "user", "content": runbook_prompt},
     ])
-    _add_runbook_signals(scenario, memory, runbook_answer + "\n" + scenario.runbook)
+    _add_runbook_signals(scenario, memory, runbook_answer)
 
     memory_prompt = f"""Incident:
 {scenario.incident['prompt']}
@@ -84,7 +84,7 @@ Prior memory:
         {"role": "system", "content": "You are the memory agent. Use only prior incident memory. Return lessons relevant to this incident."},
         {"role": "user", "content": memory_prompt},
     ])
-    _add_prior_memory_signals(memory, memory_answer + "\n" + scenario.prior_memory)
+    _add_prior_memory_signals(memory, memory_answer)
 
     planner_input = {
         "incident": scenario.incident,
