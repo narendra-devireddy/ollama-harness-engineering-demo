@@ -123,6 +123,10 @@ Live mode currently supports:
 
 The deterministic lanes remain useful as smoke tests, but they should not be presented as the proof in a management demo.
 
+## Deterministic Rules Plus Summary
+
+The live demo uses deterministic rules as the source of truth for score and findings. An optional Ollama Cloud summarizer can then rewrite those findings into a management-friendly narrative. The summarizer does not judge, change scores, or add facts.
+
 ## Industry Spectrum
 
 The management story includes an industry-movement section: hand-built harnesses are becoming SDKs and plug-and-play runtimes. The repo documents this with Strands Agents and DeepSeek Harness as examples.
