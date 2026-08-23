@@ -150,7 +150,17 @@ See [docs/strands-fit.md](docs/strands-fit.md).
 
 ## DeepSeek Fit
 
-DeepSeek is the plug-and-play provider harness lane once the exact package/release is verified. The demo treats this as a provider-specific adapter that hides model/provider quirks behind a simple interface.
+DeepSeek Harness is the plug-and-play runtime lane. For the Ollama-backed path, use Ollama's documented launcher rather than calling the DSH package directly:
+
+```bash
+ollama launch dsh
+ollama launch dsh --model deepseek-v4-flash:cloud
+ollama launch dsh --config
+```
+
+The notebook uses bounded setup cells because DeepSeek Harness is still a developer preview and Colab may not be a perfect runtime for an interactive local web UI. The proof remains the live no/weak/strong Ollama comparison; DeepSeek shows the adoption direction where harness capabilities become runtime infrastructure.
+
+Sources: [Ollama DeepSeek Harness integration](https://docs.ollama.com/integrations/deepseek-harness), [DeepSeek Harness](https://deepseek.com/harness/en/).
 
 See [docs/deepseek-provider-harness.md](docs/deepseek-provider-harness.md).
 
