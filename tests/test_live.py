@@ -54,6 +54,7 @@ def test_live_weak_harness_scores_actual_context_bundle_output() -> None:
     scenario = load_incident_scenario("incident-response")
     model = FakeModel(
         responses=[
+            "Scratchpad: p95 latency 240 to 2100, promotion_price_cache miss, downstream payment timeout. Runbook says single-flight, TTL 60, keep payment writes, rollback. Prior memory says avoid restart.",
             "Use single-flight lock, lower TTL to 60 seconds, keep payment writes enabled, rollback to previous promotion config. Evidence: p95 latency 240 to 2100, promotion_price_cache miss, downstream payment timeout. Prior memory says avoid restart."
         ]
     )

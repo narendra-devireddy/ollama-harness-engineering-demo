@@ -40,7 +40,7 @@ def run_weak_harness_lane(scenario: IncidentScenario) -> DemoResult:
     memory.add_evidence("repeated promotion_price_cache miss events")
     memory.add_runbook_step("enable promotion price cache single-flight lock")
     memory.final_plan = {
-        "raw_answer": "Dry-run weak harness: context bundle was provided, but no sensors or repair operated before final scoring."
+        "raw_answer": "Dry-run weak harness: shared scratchpad/context was provided, but no governed memory, sensors, or repair operated before final scoring."
     }
     score, checks = score_memory(memory, scenario.expected, scenario.score_weights)
     return DemoResult(

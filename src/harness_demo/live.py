@@ -26,12 +26,12 @@ def run_live_raw_lane(
     return DemoResult(
         scenario_id=scenario.id,
         lane=Lane.RAW_STRONG,
-        title=f"Live strong model with weak harness ({chat_model.model_name})",
+        title=f"Live strong model with no harness ({chat_model.model_name})",
         final_answer=answer,
         memory=memory,
         score=score,
         checks=checks,
-        business_takeaway="This is the live baseline: one strong model call, no tools, no shared memory, no reviewer, no repair loop.",
+        business_takeaway="This is the live no-harness baseline: one strong model call against the incident ticket only.",
     )
 
 
@@ -41,10 +41,10 @@ def run_live_weak_harness_lane(
     model: ChatModel | None = None,
 ) -> DemoResult:
     chat_model = model or OllamaCloudModel(model_name)
-    prompt = f"""Incident:
+    triage_prompt = f"""Incident:
 {scenario.incident['prompt']}
 
-Available context, pasted as one bundle:
+Available context:
 
 Logs:
 {scenario.logs}
@@ -55,20 +55,46 @@ Runbook:
 Prior incident memory:
 {scenario.prior_memory}
 
-Please produce a final incident response plan with likely_cause, evidence, safe_next_action, rollback_plan, customer_impact, and open_questions.
+Write triage notes into the team scratchpad. Capture suspected cause, evidence, runbook guidance, prior incident lessons, and risks.
+"""
+    triage_notes = chat_model.chat([
+        {
+            "role": "system",
+            "content": (
+                "You are the triage agent in a multi-agent incident workflow. "
+                "Write concise notes for a shared scratchpad."
+            ),
+        },
+        {"role": "user", "content": triage_prompt},
+    ])
+
+    scratchpad = f"""# Shared scratchpad
+
+## Triage notes
+{triage_notes}
+"""
+    planner_prompt = f"""Incident:
+{scenario.incident['prompt']}
+
+Shared scratchpad:
+{scratchpad}
+
+Produce the final incident response plan. Include likely_cause, evidence, safe_next_action, rollback_plan, customer_impact, and open_questions.
 Avoid unsafe actions.
 """
     answer = chat_model.chat([
         {
             "role": "system",
             "content": (
-                "You are an expert incident commander. You have some context in the prompt. "
-                "Produce the best answer you can."
+                "You are the planner agent in a multi-agent incident workflow. "
+                "Use the shared scratchpad and produce the best final answer you can."
             ),
         },
-        {"role": "user", "content": prompt},
+        {"role": "user", "content": planner_prompt},
     ])
+
     memory = _memory_from_answer(scenario, answer, used_harness_memory=True)
+    memory.final_plan["shared_scratchpad"] = scratchpad
     plan = _extract_plan(answer)
     if plan:
         memory.final_plan = plan
@@ -82,8 +108,8 @@ Avoid unsafe actions.
         score=score,
         checks=checks,
         business_takeaway=(
-            "This is a weak harness: it has feedforward context, but no controlled tool boundary, "
-            "no shared state model, no independent sensors before final scoring, no reviewer gate, and no repair loop."
+            "This is a weak multi-agent harness: agents share a scratchpad, but the memory is untyped, "
+            "unprovenanced, and not checked by sensors before the final plan. There is no reviewer gate or repair loop."
         ),
     )
 
