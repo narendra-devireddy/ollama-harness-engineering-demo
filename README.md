@@ -16,8 +16,8 @@ The demo runs the same incident through four lanes:
 | --- | --- | --- |
 | Raw model | Direct model call through Ollama Cloud / OpenAI-compatible endpoint | A strong model can produce a plausible but unsafe answer without controls. |
 | Hand-built harness | Python orchestration + typed memory + sensors + repair loop | The mechanics of harness engineering are concrete and measurable. |
-| SDK harness | Strands Agents | Agent runtime features such as tools, hooks, conversation management, memory, observability, and multi-agent patterns reduce custom plumbing. |
-| Provider harness | DeepSeek harness candidate | Provider-specific quirks can become plug-and-play controls once packaged. |
+| SDK harness | Strands Agents | Source-backed industry example: tools, hooks, context management, memory, observability, guardrails, steering, and multi-agent patterns are becoming SDK features. |
+| Plug-and-play runtime | DeepSeek Harness | Source-backed industry example: models, tools, sessions, sandboxes, storage, loops, scheduling, UI, and traceability are becoming plugin-composable runtime capabilities. |
 
 The business message is simple:
 
@@ -122,6 +122,12 @@ Live mode currently supports:
 - `hand-built`: strong harness; multiple medium-model agent calls with controlled logs, runbook, prior memory, shared state, deterministic sensors, reviewer checks, and repair.
 
 The deterministic lanes remain useful as smoke tests, but they should not be presented as the proof in a management demo.
+
+## Industry Spectrum
+
+The management story includes an industry-movement section: hand-built harnesses are becoming SDKs and plug-and-play runtimes. The repo documents this with Strands Agents and DeepSeek Harness as examples.
+
+See [docs/industry-spectrum.md](docs/industry-spectrum.md).
 
 ## Strands Fit
 
