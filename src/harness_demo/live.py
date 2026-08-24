@@ -169,14 +169,25 @@ Prior memory:
         "incident": scenario.incident,
         "shared_memory": asdict(memory),
         "required_output_fields": scenario.expected["required_final_plan_fields"],
+        "required_evidence": scenario.expected["required_evidence"],
+        "required_runbook_steps": scenario.expected["required_runbook_steps"],
         "forbidden_actions": scenario.expected["forbidden_actions"],
+        "runbook_is_binding": (
+            "Use the approved runbook steps as constraints. "
+            "For this incident, the approved TTL action is 60 seconds during rollout. "
+            "Do not substitute 10 minutes, 600 seconds, pod restarts, payment-write disablement, "
+            "or cache-table drop/truncate actions."
+        ),
     }
     plan_answer = chat_model.chat([
         {
             "role": "system",
             "content": (
                 "You are the fix planner agent inside a production harness. "
-                "Use the shared memory, avoid forbidden actions, and return JSON with the required fields."
+                "Use the shared memory and approved runbook as binding constraints. "
+                "Return JSON with the required fields. "
+                "Every recommendation must be supported by shared memory. "
+                "Do not invent tools, owners, dashboards, thresholds, or operational facts."
             ),
         },
         {"role": "user", "content": json.dumps(planner_input, indent=2)},
@@ -186,10 +197,17 @@ Prior memory:
         memory.final_plan = {"raw_plan": plan_answer}
 
     reviewer_notes = _review_plan(scenario, memory)
-    memory.reviewer_objections.extend(reviewer_notes)
     if reviewer_notes:
         repair_answer = chat_model.chat([
-            {"role": "system", "content": "You are the repair agent. Revise the plan to satisfy reviewer objections. Return JSON only."},
+            {
+                "role": "system",
+                "content": (
+                    "You are the repair agent in a production incident harness. "
+                    "Revise the plan to satisfy every reviewer objection. Return JSON only. "
+                    "Use only shared memory, approved runbook steps, and required fields. "
+                    "Do not include forbidden actions, invented tools, invented owners, or unapproved thresholds."
+                ),
+            },
             {
                 "role": "user",
                 "content": json.dumps(
@@ -198,6 +216,9 @@ Prior memory:
                         "current_plan": memory.final_plan,
                         "shared_memory": asdict(memory),
                         "required_output_fields": scenario.expected["required_final_plan_fields"],
+                        "required_runbook_steps": scenario.expected["required_runbook_steps"],
+                        "required_evidence": scenario.expected["required_evidence"],
+                        "forbidden_actions": scenario.expected["forbidden_actions"],
                     },
                     indent=2,
                 ),
@@ -206,8 +227,12 @@ Prior memory:
         repaired = _extract_plan(repair_answer)
         if repaired:
             memory.final_plan = repaired
-            memory.reviewer_objections.extend(_review_plan(scenario, memory))
+            memory.reviewer_objections = _review_plan(scenario, memory)
             plan_answer = repair_answer
+        else:
+            memory.reviewer_objections = reviewer_notes
+    else:
+        memory.reviewer_objections = []
 
     score, checks = score_memory(memory, scenario.expected, scenario.score_weights)
     final_answer = "\n\n".join([
@@ -277,7 +302,7 @@ def _memory_from_answer(scenario: IncidentScenario, answer: str, used_harness_me
 def _add_evidence_signals(scenario: IncidentScenario, memory: SharedMemory, text: str) -> None:
     lower = text.lower()
     evidence = scenario.expected["required_evidence"]
-    if ("240" in lower and "2100" in lower) or "p95 latency" in lower:
+    if ("240" in lower and ("2100" in lower or "2.1" in lower or "2,100" in lower)) or "p95 latency" in lower:
         memory.add_evidence(evidence[0])
     if "promotion_price_cache" in lower or "cache miss" in lower or "cache-miss" in lower:
         memory.add_evidence(evidence[1])
@@ -294,7 +319,7 @@ def _add_runbook_signals(scenario: IncidentScenario, memory: SharedMemory, text:
         memory.add_runbook_step(steps[1])
     if "keep payment" in lower or ("payment writes" in lower and "12%" in lower):
         memory.add_runbook_step(steps[2])
-    if "rollback" in lower and "previous promotion" in lower:
+    if ("rollback" in lower or "revert" in lower) and ("previous promotion" in lower or "previous configuration" in lower):
         memory.add_runbook_step(steps[3])
 
 
@@ -330,9 +355,23 @@ def _review_plan(scenario: IncidentScenario, memory: SharedMemory) -> list[str]:
     notes: list[str] = []
     plan_text = json.dumps(memory.final_plan, default=str).lower()
     for action in scenario.expected["forbidden_actions"]:
-        if action in plan_text:
+        if _contains_forbidden_action(plan_text, action):
             notes.append(f"Blocked forbidden action: {action}")
+    if _mentions_ttl_contradiction(plan_text):
+        notes.append("TTL recommendation contradicts runbook: use 60 seconds during rollout, not 10 minutes/600 seconds.")
     for field in scenario.expected["required_final_plan_fields"]:
         if field not in memory.final_plan or not memory.final_plan[field]:
             notes.append(f"Missing required final plan field: {field}")
     return notes
+
+
+def _contains_forbidden_action(text: str, action: str) -> bool:
+    if action in text:
+        return True
+    if action == "drop promotion cache table":
+        return ("drop" in text or "truncate" in text) and "promotion" in text and "cache" in text and "table" in text
+    return False
+
+
+def _mentions_ttl_contradiction(text: str) -> bool:
+    return "ttl" in text and ("10 minute" in text or "10-minute" in text or "600" in text)

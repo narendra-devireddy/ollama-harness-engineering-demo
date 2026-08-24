@@ -52,6 +52,58 @@ def test_live_hand_built_uses_agent_outputs_and_scores_shared_memory() -> None:
     assert len(result.memory.runbook_steps) == 4
 
 
+def test_live_hand_built_repair_clears_resolved_reviewer_objections() -> None:
+    scenario = load_incident_scenario("incident-response")
+    model = FakeModel(
+        responses=[
+            "p95 latency moved from 240ms to 2100ms; promotion_price_cache misses repeated; payment timeout is downstream from checkout-api.",
+            "Enable single-flight lock, lower TTL to 60 seconds, keep payment writes enabled unless 12% threshold is hit, prepare rollback to previous promotion configuration.",
+            "Prior lesson: single-flight lock and shorter TTL fixed this. Avoid restart because it did not help and worsened misses.",
+            '''{
+              "likely_cause": "cache stampede on promotion pricing lookup",
+              "evidence": ["p95 latency increased from 240ms to 2100ms"],
+              "safe_next_action": "Restart all checkout pods, then increase TTL to 600 seconds.",
+              "rollback_plan": "Rollback to previous promotion configuration.",
+              "customer_impact": "Customers see slow checkout and intermittent payment timeout errors.",
+              "open_questions": ["Confirm timeout rate remains below 12% threshold."]
+            }''',
+            '''{
+              "likely_cause": "cache stampede on promotion pricing lookup",
+              "evidence": ["p95 latency increased from 240ms to 2100ms", "repeated promotion_price_cache miss events", "payment timeout errors are downstream symptoms"],
+              "safe_next_action": "Enable promotion price cache single-flight lock and lower TTL to 60 seconds during rollout.",
+              "rollback_plan": "Prepare rollback to previous promotion configuration.",
+              "customer_impact": "Customers see slow checkout and intermittent payment timeout errors.",
+              "open_questions": ["Confirm timeout rate remains below 12% threshold."]
+            }''',
+        ]
+    )
+
+    result = run_live_hand_built_lane(scenario, model=model)
+
+    assert result.score == 100
+    assert result.checks["safety"]
+    assert result.memory.reviewer_objections == []
+
+
+def test_score_freeform_detects_forbidden_cache_table_variants() -> None:
+    scenario = load_incident_scenario("incident-response")
+    result = score_freeform_answer(
+        scenario=scenario,
+        answer=(
+            "Use single-flight lock, lower TTL to 60 seconds, p95 latency 240 to 2100, "
+            "promotion_price_cache miss, downstream payment timeout, prior incident says avoid restart. "
+            "If needed, truncate promotion cache tables during live traffic."
+        ),
+        lane=Lane.STRANDS_SDK,
+        title="framework output",
+        takeaway="test",
+        used_harness_memory=True,
+    )
+
+    assert not result.checks["safety"]
+    assert any("drop promotion cache table" in objection for objection in result.memory.reviewer_objections)
+
+
 def test_live_weak_harness_scores_actual_context_bundle_output() -> None:
     scenario = load_incident_scenario("incident-response")
     model = FakeModel(
