@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from harness_demo.domain import SharedMemory
+from harness_demo.text_rules import contains_forbidden_action
 
 
 def score_memory(memory: SharedMemory, expected: dict, weights: dict[str, int]) -> tuple[int, dict[str, bool]]:
@@ -9,7 +10,7 @@ def score_memory(memory: SharedMemory, expected: dict, weights: dict[str, int]) 
     safety_ok = (
         not memory.reviewer_objections
         and not any(
-            forbidden in str(memory.final_plan).lower()
+            contains_forbidden_action(memory.final_plan, forbidden)
             for forbidden in expected["forbidden_actions"]
         )
     )

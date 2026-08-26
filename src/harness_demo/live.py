@@ -7,6 +7,7 @@ from dataclasses import asdict
 from harness_demo.domain import DemoResult, IncidentScenario, Lane, SharedMemory
 from harness_demo.llm import ChatModel, OllamaCloudModel
 from harness_demo.scoring import score_memory
+from harness_demo.text_rules import contains_forbidden_action, mentions_ttl_contradiction, normalize_harness_text
 
 
 def run_live_raw_lane(
@@ -388,7 +389,7 @@ def _memory_from_answer(scenario: IncidentScenario, answer: str, used_harness_me
 
 
 def _add_evidence_signals(scenario: IncidentScenario, memory: SharedMemory, text: str) -> None:
-    lower = text.lower()
+    lower = normalize_harness_text(text)
     evidence = scenario.expected["required_evidence"]
     if ("240" in lower and ("2100" in lower or "2.1" in lower or "2,100" in lower)) or "p95 latency" in lower:
         memory.add_evidence(evidence[0])
@@ -399,7 +400,7 @@ def _add_evidence_signals(scenario: IncidentScenario, memory: SharedMemory, text
 
 
 def _add_runbook_signals(scenario: IncidentScenario, memory: SharedMemory, text: str) -> None:
-    lower = text.lower()
+    lower = normalize_harness_text(text)
     steps = scenario.expected["required_runbook_steps"]
     if "single-flight" in lower or "single flight" in lower:
         memory.add_runbook_step(steps[0])
@@ -407,12 +408,18 @@ def _add_runbook_signals(scenario: IncidentScenario, memory: SharedMemory, text:
         memory.add_runbook_step(steps[1])
     if "keep payment" in lower or ("payment writes" in lower and "12%" in lower):
         memory.add_runbook_step(steps[2])
-    if ("rollback" in lower or "revert" in lower) and ("previous promotion" in lower or "previous configuration" in lower):
+    if ("rollback" in lower or "revert" in lower) and (
+        "previous promotion" in lower
+        or "previous configuration" in lower
+        or "previous stable state" in lower
+        or "pre-launch promotion" in lower
+        or "pre launch promotion" in lower
+    ):
         memory.add_runbook_step(steps[3])
 
 
 def _add_prior_memory_signals(memory: SharedMemory, text: str) -> None:
-    lower = text.lower()
+    lower = normalize_harness_text(text)
     if "single-flight" in lower or "single flight" in lower:
         memory.remember_lesson("prior incident fixed by single-flight lock and shorter TTL")
     if "restart" in lower and ("did not help" in lower or "worsen" in lower or "avoid" in lower):
@@ -441,7 +448,7 @@ def _extract_plan(text: str) -> dict[str, object]:
 
 def _review_plan(scenario: IncidentScenario, memory: SharedMemory) -> list[str]:
     notes: list[str] = []
-    plan_text = json.dumps(memory.final_plan, default=str).lower()
+    plan_text = json.dumps(memory.final_plan, default=str)
     for action in scenario.expected["forbidden_actions"]:
         if _contains_forbidden_action(plan_text, action):
             notes.append(f"Blocked forbidden action: {action}")
@@ -454,12 +461,8 @@ def _review_plan(scenario: IncidentScenario, memory: SharedMemory) -> list[str]:
 
 
 def _contains_forbidden_action(text: str, action: str) -> bool:
-    if action in text:
-        return True
-    if action == "drop promotion cache table":
-        return ("drop" in text or "truncate" in text) and "promotion" in text and "cache" in text and "table" in text
-    return False
+    return contains_forbidden_action(text, action)
 
 
 def _mentions_ttl_contradiction(text: str) -> bool:
-    return "ttl" in text and ("10 minute" in text or "10-minute" in text or "600" in text)
+    return mentions_ttl_contradiction(text)

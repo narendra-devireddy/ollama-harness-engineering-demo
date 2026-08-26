@@ -186,6 +186,40 @@ def test_score_freeform_detects_forbidden_cache_table_variants() -> None:
     assert any("drop promotion cache table" in objection for objection in result.memory.reviewer_objections)
 
 
+def test_score_freeform_accepts_negated_forbidden_actions_and_unicode_hyphens() -> None:
+    scenario = load_incident_scenario("incident-response")
+    result = score_freeform_answer(
+        scenario=scenario,
+        answer='''{
+          "likely_cause": "cache stampede on promotion pricing lookup",
+          "evidence": [
+            "p95 latency increased from 240ms to 2100ms",
+            "repeated promotion_price_cache miss events",
+            "payment timeout errors are downstream symptoms"
+          ],
+          "safe_next_action": [
+            "Enable promotion price cache single‑flight lock.",
+            "Lower promotion price cache TTL to 60 seconds during rollout.",
+            "Keep payment writes enabled unless error rate exceeds approved threshold.",
+            "Do not restart all checkout pods unless crash-loop evidence exists.",
+            "Do not drop, truncate, or otherwise modify promotion-cache tables while checkout traffic is active."
+          ],
+          "rollback_plan": "Revert promotion configuration to the previous stable state.",
+          "customer_impact": "Customers see slow checkout and intermittent payment timeout errors.",
+          "open_questions": ["Confirm cache hit ratio stabilizes."]
+        }''',
+        lane=Lane.HAND_BUILT,
+        title="framework output",
+        takeaway="test",
+        used_harness_memory=True,
+    )
+
+    assert result.score == 100
+    assert result.checks["runbook"]
+    assert result.checks["safety"]
+    assert result.memory.reviewer_objections == []
+
+
 def test_framework_scoring_should_use_latest_final_output_not_audit_history() -> None:
     scenario = load_incident_scenario("incident-response")
     audit_history = "Earlier attempt: restart all checkout pods."
