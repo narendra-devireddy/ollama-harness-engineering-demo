@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from dataclasses import asdict
 
 from harness_demo.domain import DemoResult, IncidentScenario, Lane, SharedMemory
@@ -242,21 +243,54 @@ def _run_custom_goal_loop(
     attempts: list[dict[str, object]],
 ) -> str:
     answer = initial_answer
+    base_memory = deepcopy(memory)
+    best_answer = initial_answer
+    best_memory = deepcopy(memory)
+    best_rank = (-1, -1)
+    best_score = 0
+    best_checks: dict[str, bool] = {}
+    best_reviewer_notes: list[str] = []
+    rejected_candidates: list[dict[str, object]] = []
+
     for attempt_number in range(1, max_attempts + 1):
-        _apply_plan_answer_to_memory(scenario, memory, answer)
-        reviewer_notes = _review_plan(scenario, memory)
-        memory.reviewer_objections = reviewer_notes
-        score, checks = score_memory(memory, scenario.expected, scenario.score_weights)
+        candidate_memory = deepcopy(base_memory)
+        _apply_plan_answer_to_memory(scenario, candidate_memory, answer)
+        reviewer_notes = _review_plan(scenario, candidate_memory)
+        candidate_memory.reviewer_objections = reviewer_notes
+        score, checks = score_memory(candidate_memory, scenario.expected, scenario.score_weights)
         passed = all(checks.values()) and not reviewer_notes
+        rank = _candidate_rank(score, checks)
+        accepted = rank > best_rank
+        if accepted:
+            best_answer = answer
+            best_memory = candidate_memory
+            best_rank = rank
+            best_score = score
+            best_checks = checks
+            best_reviewer_notes = reviewer_notes
+        else:
+            rejected_candidates.append({
+                "attempt": attempt_number,
+                "score": score,
+                "checks": checks,
+                "reviewer_objections": reviewer_notes,
+                "reason": "Rejected because it did not improve the best accepted candidate.",
+            })
+
         attempts.append({
             "attempt": attempt_number,
             "score": score,
             "checks": checks,
             "reviewer_objections": reviewer_notes,
             "passed": passed,
+            "accepted": accepted,
         })
-        if passed or attempt_number >= max_attempts:
+        if passed:
+            _copy_memory(best_memory, memory)
             return answer
+        if attempt_number >= max_attempts:
+            _copy_memory(best_memory, memory)
+            return best_answer
 
         answer = chat_model.chat([
             {
@@ -272,10 +306,12 @@ def _run_custom_goal_loop(
                 "role": "user",
                 "content": json.dumps(
                     {
-                        "reviewer_objections": reviewer_notes,
-                        "failed_checks": [name for name, passed_check in checks.items() if not passed_check],
-                        "current_plan": memory.final_plan,
-                        "shared_memory": asdict(memory),
+                        "reviewer_objections": best_reviewer_notes,
+                        "failed_checks": [name for name, passed_check in best_checks.items() if not passed_check],
+                        "current_plan": best_memory.final_plan,
+                        "best_score_so_far": best_score,
+                        "rejected_candidates": rejected_candidates,
+                        "shared_memory": asdict(base_memory),
                         "required_output_fields": scenario.expected["required_final_plan_fields"],
                         "required_runbook_steps": scenario.expected["required_runbook_steps"],
                         "required_evidence": scenario.expected["required_evidence"],
@@ -286,6 +322,19 @@ def _run_custom_goal_loop(
             },
         ])
     return answer
+
+
+def _candidate_rank(score: int, checks: dict[str, bool]) -> tuple[int, int]:
+    return (1 if checks.get("safety") else 0, score)
+
+
+def _copy_memory(source: SharedMemory, target: SharedMemory) -> None:
+    target.incident_facts = deepcopy(source.incident_facts)
+    target.evidence = deepcopy(source.evidence)
+    target.runbook_steps = deepcopy(source.runbook_steps)
+    target.prior_lessons = deepcopy(source.prior_lessons)
+    target.reviewer_objections = deepcopy(source.reviewer_objections)
+    target.final_plan = deepcopy(source.final_plan)
 
 
 def _apply_plan_answer_to_memory(scenario: IncidentScenario, memory: SharedMemory, answer: str) -> None:

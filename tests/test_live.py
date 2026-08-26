@@ -122,6 +122,51 @@ def test_live_hand_built_goal_loop_repairs_missing_runbook_signal() -> None:
     assert result.goal_loop_attempts[1]["passed"] is True
 
 
+def test_live_hand_built_goal_loop_keeps_best_candidate_when_repair_regresses() -> None:
+    scenario = load_incident_scenario("incident-response")
+    model = FakeModel(
+        responses=[
+            "p95 latency moved from 240ms to 2100ms; promotion_price_cache misses repeated; payment timeout is downstream from checkout-api.",
+            "Lower TTL to 60 seconds, keep payment writes enabled unless 12% threshold is hit, prepare rollback to previous promotion configuration.",
+            "Prior lesson: single-flight lock and shorter TTL fixed this. Avoid restart because it did not help and worsened misses.",
+            '''{
+              "likely_cause": "cache stampede on promotion pricing lookup",
+              "evidence": ["p95 latency increased from 240ms to 2100ms", "repeated promotion_price_cache miss events", "payment timeout errors are downstream symptoms"],
+              "safe_next_action": "Lower TTL to 60 seconds during rollout and keep payment writes enabled unless the approved threshold is exceeded.",
+              "rollback_plan": "Prepare rollback to previous promotion configuration.",
+              "customer_impact": "Customers see slow checkout and intermittent payment timeout errors.",
+              "open_questions": ["Confirm timeout rate remains below 12% threshold."]
+            }''',
+            '''{
+              "likely_cause": "cache stampede on promotion pricing lookup",
+              "evidence": ["p95 latency increased from 240ms to 2100ms", "repeated promotion_price_cache miss events", "payment timeout errors are downstream symptoms"],
+              "safe_next_action": "Restart all checkout pods, then lower TTL to 60 seconds.",
+              "rollback_plan": "Prepare rollback to previous promotion configuration.",
+              "customer_impact": "Customers see slow checkout and intermittent payment timeout errors.",
+              "open_questions": ["Confirm timeout rate remains below 12% threshold."]
+            }''',
+            '''{
+              "likely_cause": "cache stampede on promotion pricing lookup",
+              "evidence": ["p95 latency increased from 240ms to 2100ms", "repeated promotion_price_cache miss events", "payment timeout errors are downstream symptoms"],
+              "safe_next_action": "Restart all checkout pods and then enable single-flight lock.",
+              "rollback_plan": "Prepare rollback to previous promotion configuration.",
+              "customer_impact": "Customers see slow checkout and intermittent payment timeout errors.",
+              "open_questions": ["Confirm timeout rate remains below 12% threshold."]
+            }''',
+        ]
+    )
+
+    result = run_live_hand_built_lane(scenario, model=model)
+
+    assert result.score == 75
+    assert result.checks["safety"]
+    assert not result.checks["runbook"]
+    assert "Restart all checkout pods" not in str(result.memory.final_plan)
+    assert result.goal_loop_attempts[0]["accepted"] is True
+    assert result.goal_loop_attempts[1]["accepted"] is False
+    assert result.goal_loop_attempts[2]["accepted"] is False
+
+
 def test_score_freeform_detects_forbidden_cache_table_variants() -> None:
     scenario = load_incident_scenario("incident-response")
     result = score_freeform_answer(
