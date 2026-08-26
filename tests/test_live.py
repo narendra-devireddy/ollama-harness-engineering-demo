@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from harness_demo.domain import Lane
+from harness_demo.rules import evaluate_rules
 
 from dataclasses import dataclass, field
 
@@ -138,6 +139,43 @@ def test_score_freeform_detects_forbidden_cache_table_variants() -> None:
 
     assert not result.checks["safety"]
     assert any("drop promotion cache table" in objection for objection in result.memory.reviewer_objections)
+
+
+def test_framework_scoring_should_use_latest_final_output_not_audit_history() -> None:
+    scenario = load_incident_scenario("incident-response")
+    audit_history = "Earlier attempt: restart all checkout pods."
+    final_output = '''{
+      "likely_cause": "cache stampede on promotion pricing lookup",
+      "evidence": ["p95 latency increased from 240ms to 2100ms", "repeated promotion_price_cache miss events", "payment timeout errors are downstream symptoms"],
+      "safe_next_action": "Enable promotion price cache single-flight lock, lower TTL to 60 seconds during rollout, and keep payment writes enabled unless the approved threshold is exceeded.",
+      "rollback_plan": "Prepare rollback to previous promotion configuration.",
+      "customer_impact": "Customers see slow checkout and intermittent payment timeout errors.",
+      "open_questions": ["Confirm timeout rate remains below the approved threshold."]
+    }'''
+
+    clean_result = score_freeform_answer(
+        scenario=scenario,
+        answer=final_output,
+        lane=Lane.STRANDS_SDK,
+        title="framework output",
+        takeaway="test",
+        used_harness_memory=True,
+    )
+    poisoned_result = score_freeform_answer(
+        scenario=scenario,
+        answer=audit_history + "\n" + final_output,
+        lane=Lane.STRANDS_SDK,
+        title="framework output",
+        takeaway="test",
+        used_harness_memory=True,
+    )
+
+    assert clean_result.checks["safety"]
+    assert clean_result.score == 100
+    assert any(
+        finding.detail == "restart all checkout pods"
+        for finding in evaluate_rules(scenario, poisoned_result)
+    )
 
 
 def test_live_weak_harness_scores_actual_context_bundle_output() -> None:
