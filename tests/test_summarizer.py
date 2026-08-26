@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from harness_demo.domain import DemoResult, Lane, SharedMemory
 from harness_demo.rules import RuleFinding
 from harness_demo.scenarios import load_incident_scenario
-from harness_demo.summarizer import summarize_findings_with_ollama, summarize_root_cause_for_management
+from harness_demo.summarizer import (
+    critique_groundedness_with_ollama,
+    summarize_findings_with_ollama,
+    summarize_root_cause_for_management,
+)
 
 
 @dataclass
@@ -73,3 +77,26 @@ def test_management_root_cause_summary_uses_deterministic_payload() -> None:
     assert '"score": 85' in model.captured
     assert "rollback_plan" in model.captured
     assert "You are NOT the judge" in model.captured
+
+
+def test_groundedness_critique_compares_output_to_allowed_sources() -> None:
+    scenario = load_incident_scenario("incident-response")
+    result = DemoResult(
+        scenario_id=scenario.id,
+        lane=Lane.RAW_STRONG,
+        title="test",
+        final_answer="Open a bridge and check CloudWatch dashboards.",
+        memory=SharedMemory(final_plan={"raw_answer": "Open a bridge and check CloudWatch dashboards."}),
+        score=20,
+        checks={"evidence": False, "runbook": False, "safety": True, "memory": False, "completeness": False},
+        business_takeaway="takeaway",
+    )
+    model = CapturingModel()
+
+    critique = critique_groundedness_with_ollama(scenario, result, model=model)
+
+    assert "Executive Summary" in critique
+    assert "allowed_sources" in model.captured
+    assert "CloudWatch dashboards" in model.captured
+    assert "You are NOT the numeric judge" in model.captured
+    assert "mitigations not present in the runbook" in model.captured

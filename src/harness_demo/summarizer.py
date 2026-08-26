@@ -114,3 +114,59 @@ Payload:
         {"role": "system", "content": "Translate deterministic incident findings for senior management without changing facts."},
         {"role": "user", "content": prompt},
     ])
+
+
+def critique_groundedness_with_ollama(
+    scenario: IncidentScenario,
+    result: DemoResult,
+    model_name: str = "gpt-oss:20b",
+    model: ChatModel | None = None,
+) -> str:
+    """Use an LLM to critique unsupported claims without changing deterministic scoring."""
+    chat_model = model or OllamaCloudModel(model_name)
+    payload = {
+        "allowed_sources": {
+            "incident": scenario.incident,
+            "logs": scenario.logs,
+            "runbook": scenario.runbook,
+            "prior_memory": scenario.prior_memory,
+            "quality_contract": scenario.expected,
+        },
+        "lane": result.lane.value,
+        "score": result.score,
+        "checks": result.checks,
+        "model_output": result.final_answer,
+        "extracted_memory": asdict(result.memory),
+    }
+    prompt = f"""You are a qualitative groundedness critic for an AI harness demo.
+
+You are NOT the numeric judge. Do not change score or pass/fail values.
+Your job is to find semantic unsupported claims that deterministic string rules may miss.
+
+Compare the model output against the allowed sources only.
+Flag claims as unsupported when they introduce:
+- owners, teams, tools, dashboards, platforms, databases, queues, metrics, or timelines not present in the allowed sources
+- mitigations not present in the runbook
+- certainty stronger than the evidence supports
+- management-language risks hidden behind technical language
+
+Do not call something unsupported merely because it is a paraphrase of an allowed source.
+
+Return Markdown with exactly these sections:
+
+## Qualitative Groundedness Critique
+2-5 bullets with concrete unsupported or overconfident claims. If none, say none found.
+
+## Evidence For The Critique
+For each issue, quote or paraphrase the model claim briefly and name which allowed source failed to support it.
+
+## Demo Narration
+2-3 sentences explaining what this teaches about harness engineering.
+
+Payload:
+{json.dumps(payload, indent=2, default=str)}
+"""
+    return chat_model.chat([
+        {"role": "system", "content": "Critique AI output groundedness against supplied incident sources only."},
+        {"role": "user", "content": prompt},
+    ])
