@@ -85,6 +85,42 @@ def test_live_hand_built_repair_clears_resolved_reviewer_objections() -> None:
     assert result.memory.reviewer_objections == []
 
 
+def test_live_hand_built_goal_loop_repairs_missing_runbook_signal() -> None:
+    scenario = load_incident_scenario("incident-response")
+    model = FakeModel(
+        responses=[
+            "p95 latency moved from 240ms to 2100ms; promotion_price_cache misses repeated; payment timeout is downstream from checkout-api.",
+            "Enable single-flight lock, lower TTL to 60 seconds, keep payment writes enabled unless 12% threshold is hit.",
+            "Prior lesson: single-flight lock and shorter TTL fixed this. Avoid restart because it did not help and worsened misses.",
+            '''{
+              "likely_cause": "cache stampede on promotion pricing lookup",
+              "evidence": ["p95 latency increased from 240ms to 2100ms", "repeated promotion_price_cache miss events", "payment timeout errors are downstream symptoms"],
+              "safe_next_action": "Enable promotion price cache single-flight lock and lower TTL to 60 seconds during rollout.",
+              "rollback_plan": "",
+              "customer_impact": "Customers see slow checkout and intermittent payment timeout errors.",
+              "open_questions": ["Confirm timeout rate remains below 12% threshold."]
+            }''',
+            '''{
+              "likely_cause": "cache stampede on promotion pricing lookup",
+              "evidence": ["p95 latency increased from 240ms to 2100ms", "repeated promotion_price_cache miss events", "payment timeout errors are downstream symptoms"],
+              "safe_next_action": "Enable promotion price cache single-flight lock and lower TTL to 60 seconds during rollout.",
+              "rollback_plan": "Prepare rollback to previous promotion configuration.",
+              "customer_impact": "Customers see slow checkout and intermittent payment timeout errors.",
+              "open_questions": ["Confirm timeout rate remains below 12% threshold."]
+            }''',
+        ]
+    )
+
+    result = run_live_hand_built_lane(scenario, model=model)
+
+    assert result.score == 100
+    assert result.checks["runbook"]
+    assert result.checks["completeness"]
+    assert len(result.goal_loop_attempts) == 2
+    assert result.goal_loop_attempts[0]["passed"] is False
+    assert result.goal_loop_attempts[1]["passed"] is True
+
+
 def test_score_freeform_detects_forbidden_cache_table_variants() -> None:
     scenario = load_incident_scenario("incident-response")
     result = score_freeform_answer(

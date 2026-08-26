@@ -118,6 +118,7 @@ def run_live_hand_built_lane(
     scenario: IncidentScenario,
     model_name: str = "gpt-oss:20b",
     model: ChatModel | None = None,
+    max_goal_attempts: int = 3,
 ) -> DemoResult:
     chat_model = model or OllamaCloudModel(model_name)
     memory = SharedMemory()
@@ -192,18 +193,77 @@ Prior memory:
         },
         {"role": "user", "content": json.dumps(planner_input, indent=2)},
     ])
-    memory.final_plan = _extract_plan(plan_answer)
-    if not memory.final_plan:
-        memory.final_plan = {"raw_plan": plan_answer}
+    goal_loop_attempts: list[dict[str, object]] = []
+    plan_answer = _run_custom_goal_loop(
+        scenario=scenario,
+        memory=memory,
+        chat_model=chat_model,
+        initial_answer=plan_answer,
+        max_attempts=max_goal_attempts,
+        attempts=goal_loop_attempts,
+    )
 
-    reviewer_notes = _review_plan(scenario, memory)
-    if reviewer_notes:
-        repair_answer = chat_model.chat([
+    score, checks = score_memory(memory, scenario.expected, scenario.score_weights)
+    final_answer_parts = [
+        "## Log Investigator Agent",
+        evidence_answer,
+        "## Runbook Agent",
+        runbook_answer,
+        "## Memory Agent",
+        memory_answer,
+        "## Fix Planner / Goal Loop Output",
+        plan_answer,
+    ]
+    if goal_loop_attempts:
+        final_answer_parts.extend([
+            "## Custom Goal Loop Attempts",
+            json.dumps(goal_loop_attempts, indent=2),
+        ])
+    final_answer = "\n\n".join(final_answer_parts)
+    return DemoResult(
+        scenario_id=scenario.id,
+        lane=Lane.HAND_BUILT,
+        title=f"Live medium model with hand-built harness ({chat_model.model_name})",
+        final_answer=final_answer,
+        memory=memory,
+        score=score,
+        checks=checks,
+        business_takeaway="This live lane uses multiple controlled model calls, repo-backed tools, shared memory, sensors, reviewer checks, and a bounded goal loop.",
+        goal_loop_attempts=goal_loop_attempts,
+    )
+
+
+def _run_custom_goal_loop(
+    scenario: IncidentScenario,
+    memory: SharedMemory,
+    chat_model: ChatModel,
+    initial_answer: str,
+    max_attempts: int,
+    attempts: list[dict[str, object]],
+) -> str:
+    answer = initial_answer
+    for attempt_number in range(1, max_attempts + 1):
+        _apply_plan_answer_to_memory(scenario, memory, answer)
+        reviewer_notes = _review_plan(scenario, memory)
+        memory.reviewer_objections = reviewer_notes
+        score, checks = score_memory(memory, scenario.expected, scenario.score_weights)
+        passed = all(checks.values()) and not reviewer_notes
+        attempts.append({
+            "attempt": attempt_number,
+            "score": score,
+            "checks": checks,
+            "reviewer_objections": reviewer_notes,
+            "passed": passed,
+        })
+        if passed or attempt_number >= max_attempts:
+            return answer
+
+        answer = chat_model.chat([
             {
                 "role": "system",
                 "content": (
                     "You are the repair agent in a production incident harness. "
-                    "Revise the plan to satisfy every reviewer objection. Return JSON only. "
+                    "Revise the plan to satisfy every reviewer objection and failed check. Return JSON only. "
                     "Use only shared memory, approved runbook steps, and required fields. "
                     "Do not include forbidden actions, invented tools, invented owners, or unapproved thresholds."
                 ),
@@ -213,6 +273,7 @@ Prior memory:
                 "content": json.dumps(
                     {
                         "reviewer_objections": reviewer_notes,
+                        "failed_checks": [name for name, passed_check in checks.items() if not passed_check],
                         "current_plan": memory.final_plan,
                         "shared_memory": asdict(memory),
                         "required_output_fields": scenario.expected["required_final_plan_fields"],
@@ -224,37 +285,15 @@ Prior memory:
                 ),
             },
         ])
-        repaired = _extract_plan(repair_answer)
-        if repaired:
-            memory.final_plan = repaired
-            memory.reviewer_objections = _review_plan(scenario, memory)
-            plan_answer = repair_answer
-        else:
-            memory.reviewer_objections = reviewer_notes
-    else:
-        memory.reviewer_objections = []
+    return answer
 
-    score, checks = score_memory(memory, scenario.expected, scenario.score_weights)
-    final_answer = "\n\n".join([
-        "## Log Investigator Agent",
-        evidence_answer,
-        "## Runbook Agent",
-        runbook_answer,
-        "## Memory Agent",
-        memory_answer,
-        "## Fix Planner / Repair Output",
-        plan_answer,
-    ])
-    return DemoResult(
-        scenario_id=scenario.id,
-        lane=Lane.HAND_BUILT,
-        title=f"Live medium model with hand-built harness ({chat_model.model_name})",
-        final_answer=final_answer,
-        memory=memory,
-        score=score,
-        checks=checks,
-        business_takeaway="This live lane uses multiple controlled model calls, repo-backed tools, shared memory, sensors, reviewer checks, and repair.",
-    )
+
+def _apply_plan_answer_to_memory(scenario: IncidentScenario, memory: SharedMemory, answer: str) -> None:
+    plan = _extract_plan(answer)
+    memory.final_plan = plan if plan else {"raw_plan": answer}
+    _add_evidence_signals(scenario, memory, answer)
+    _add_runbook_signals(scenario, memory, answer)
+    _add_prior_memory_signals(memory, answer)
 
 
 def score_freeform_answer(

@@ -56,3 +56,4 @@ class DemoResult:
     score: int
     checks: dict[str, bool]
     business_takeaway: str
+    goal_loop_attempts: list[dict[str, object]] = field(default_factory=list)
