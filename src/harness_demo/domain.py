@@ -9,6 +9,7 @@ class Lane(str, Enum):
     WEAK_HARNESS = "weak-harness"
     HAND_BUILT = "hand-built"
     STRANDS_SDK = "strands-sdk"
+    MICROSOFT_AGENT_FRAMEWORK = "microsoft-agent-framework"
     DEEPSEEK_PROVIDER = "deepseek-provider"
 
 
