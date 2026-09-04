@@ -19,6 +19,8 @@ live = [
   "openai>=1.40.0",
   "ollama>=0.5.0",
   "strands-agents>=1.0.0",
+]
+maf = [
   "agent-framework>=1.14.0",
   "agent-framework-openai>=1.14.0",
   "agent-framework-orchestrations>=1.1.1",
