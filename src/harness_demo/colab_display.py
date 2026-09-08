@@ -127,7 +127,7 @@ def render_management_summary_markdown(result: DemoResult) -> str:
         for name, passed in result.checks.items()
     )
     status = "APPROVED FOR HUMAN REVIEW" if result.score >= 85 and not result.memory.reviewer_objections else "NEEDS REVIEW / REPAIR"
-    return f"""## Management View: {result.lane.value}
+    return f"""## Quality Gate View: {result.lane.value}
 
 **Status:** {status}  
 **Score:** **{result.score}/100**
@@ -146,6 +146,10 @@ The weights are static and intentionally visible. The pass/fail values are compu
 - Memory: did prior lessons enter the result?
 - Completeness: did the final plan include required fields?
 """
+
+
+def render_quality_gate_markdown(result: DemoResult) -> str:
+    return render_management_summary_markdown(result)
 
 
 def render_executive_findings_markdown(result: DemoResult) -> str:

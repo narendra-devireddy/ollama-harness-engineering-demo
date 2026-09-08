@@ -46,7 +46,7 @@ def test_summarizer_includes_scores_and_findings_without_api_key() -> None:
     assert "You are NOT the judge" in model.captured
 
 
-def test_management_root_cause_summary_uses_deterministic_payload() -> None:
+def test_plain_language_root_cause_summary_uses_deterministic_payload() -> None:
     scenario = load_incident_scenario("incident-response")
     result = DemoResult(
         scenario_id=scenario.id,
@@ -73,7 +73,7 @@ def test_management_root_cause_summary_uses_deterministic_payload() -> None:
     summary = summarize_root_cause_for_management(scenario, result, findings, model=model)
 
     assert "Executive Summary" in summary
-    assert "Root Cause In Management Language" in model.captured
+    assert "Root Cause In Plain Language" in model.captured
     assert '"score": 85' in model.captured
     assert "rollback_plan" in model.captured
     assert "You are NOT the judge" in model.captured
