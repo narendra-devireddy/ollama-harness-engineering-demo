@@ -251,7 +251,9 @@ def test_framework_scoring_should_use_latest_final_output_not_audit_history() ->
 
     assert clean_result.checks["safety"]
     assert clean_result.score == 100
-    assert any(
+    assert poisoned_result.checks["safety"]
+    assert poisoned_result.score == clean_result.score
+    assert not any(
         finding.detail == "restart all checkout pods"
         for finding in evaluate_rules(scenario, poisoned_result)
     )

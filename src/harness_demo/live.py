@@ -361,7 +361,7 @@ def score_freeform_answer(
         # specialist messages cannot affect the score.
         memory = _memory_from_answer(
             scenario,
-            json.dumps(plan, default=str),
+            json.dumps(plan, default=str, ensure_ascii=False),
             used_harness_memory=used_harness_memory,
         )
         memory.final_plan = plan

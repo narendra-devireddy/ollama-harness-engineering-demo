@@ -10,7 +10,9 @@ def test_rule_engine_flags_ttl_contradiction_and_unsupported_tools() -> None:
         lane=Lane.HAND_BUILT,
         title="test",
         final_answer="Use Grafana, Slack, kubectl and increase TTL to 10 minutes / 600 seconds.",
-        memory=SharedMemory(final_plan={"safe_next_action": "increase TTL to 10 minutes"}),
+        memory=SharedMemory(final_plan={
+            "safe_next_action": "increase TTL to 10 minutes using Grafana, Slack, and kubectl",
+        }),
         score=0,
         checks={},
         business_takeaway="test",
