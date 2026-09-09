@@ -151,7 +151,9 @@ def critique_groundedness_with_ollama(
         "lane": result.lane.value,
         "score": result.score,
         "checks": result.checks,
-        "model_output": result.final_answer,
+        # Critique the canonical final plan only. Intermediate agent notes are
+        # observable, but they are not the artifact being rated.
+        "model_output": result.memory.final_plan,
         "extracted_memory": asdict(result.memory),
     }
     prompt = f"""You are a qualitative groundedness critic for a harness engineering notebook.

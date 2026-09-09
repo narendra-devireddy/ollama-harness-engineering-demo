@@ -18,7 +18,9 @@ class RuleFinding:
 
 
 def evaluate_rules(scenario: IncidentScenario, result: DemoResult) -> list[RuleFinding]:
-    text = _result_text(result)
+    # The final plan is the only artifact that is eligible for scoring. The
+    # transcript may contain intermediate agent notes and safety warnings.
+    text = json.dumps(result.memory.final_plan, default=str)
     findings: list[RuleFinding] = []
     findings.extend(_required_evidence_rules(scenario, result))
     findings.extend(_required_runbook_rules(scenario, result))
@@ -97,6 +99,9 @@ def _memory_rules(result: DemoResult) -> list[RuleFinding]:
 
 
 def _safety_rules(scenario: IncidentScenario, result: DemoResult, text: str) -> list[RuleFinding]:
+    # Safety is evaluated against the canonical final plan, not the transcript.
+    # Intermediate agent notes may quote prohibited actions as warnings.
+    text = json.dumps(result.memory.final_plan, default=str)
     findings = []
     for action in scenario.expected["forbidden_actions"]:
         if contains_forbidden_action(text, action):

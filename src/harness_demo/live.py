@@ -357,6 +357,13 @@ def score_freeform_answer(
     memory = _memory_from_answer(scenario, answer, used_harness_memory=used_harness_memory)
     plan = _extract_plan(answer)
     if plan:
+        # Rebuild extracted signals from the canonical plan so intermediate
+        # specialist messages cannot affect the score.
+        memory = _memory_from_answer(
+            scenario,
+            json.dumps(plan, default=str),
+            used_harness_memory=used_harness_memory,
+        )
         memory.final_plan = plan
     reviewer_notes = _review_plan(scenario, memory)
     memory.reviewer_objections.extend(reviewer_notes)
